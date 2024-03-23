@@ -28,8 +28,6 @@
 
 ;;; Code:
 
-(eval-when-compile (require 'cl))
-
 (defgroup elein nil
   "running leiningen commands from emacs"
   :prefix "elein-"
@@ -38,38 +36,6 @@
 (defcustom elein-lein "lein"
   "Leiningen 'lein' command."
   :type 'string
-  :group 'elein)
-
-(defcustom elein-standalone-swank-command "~/.lein/bin/swank-clojure"
-  "Leiningen 'swank-clojure' command for standalone execution."
-  :type 'string
-  :group 'elein)
-
-(defcustom elein-swank-buffer-name "*elein-swank*"
-  "Buffer name for swank process."
-  :type 'string
-  :group 'elein)
-
-(defcustom elein-swank-port 4005
-  "Swank port to listen."
-  :type 'integer
-  :group 'elein)
-
-(defcustom elein-swank-host "127.0.0.1"
-  "Swank address to listen."
-  :type 'string
-  :group 'elein)
-
-(defcustom elein-swank-options ":encoding '\"utf-8\"'"
-  "Swank options."
-  :type 'string
-  :group 'elein)
-
-(defcustom elein-slime-net-coding-system 'utf-8-unix
-  "Coding system used for slime network connections.
-Should match any :encoding specified in `elein-swank-options'.
-See also `slime-net-valid-coding-systems'."
-  :type 'symbol
   :group 'elein)
 
 (defun elein-project-root ()
@@ -113,78 +79,12 @@ See also `slime-net-valid-coding-systems'."
                                      elein-task-alist))
         tasks))))
 
-(defun elein-swank-command ()
-  "Build lein swank command from customization variables."
-  (format "%s swank %d %s %s"
-          elein-lein
-          elein-swank-port
-          elein-swank-host
-          elein-swank-options))
-
-(defun elein-standalone-swank-command ()
-  "Build projectless lein swank command."
-  (unless (file-exists-p (expand-file-name elein-standalone-swank-command))
-    (error "can not find %s; use 'lein install swank-clojure VERSION' to install it"
-           elein-standalone-swank-command))
-  (format "%s %d :host %s %s"
-          (expand-file-name elein-standalone-swank-command)
-          elein-swank-port
-          elein-swank-host
-          elein-swank-options))
-
 (defun elein-burried-shell-command (command buffer)
   "Same as `shell-command' but run process asynchronously, do not
 show output and burry the given BUFFER."
   (flet ((display-buffer (buffer-or-name &optional not-this-window frame) nil))
     (bury-buffer buffer)
     (shell-command (concat command "&") buffer)))
-
-(defun elein-swank-process-filter (process output)
-  "Swank process filter to launch `slime-connect' when process is ready."
-  (with-current-buffer elein-swank-buffer-name (insert output))
-
-  (when (string-match "Connection opened on \\(local\\|127.0.0.1\\) port +\\([0-9]+\\)" output)
-    (slime-set-inferior-process
-     (slime-connect "localhost" (string-to-number (match-string 2 output)) elein-slime-net-coding-system)
-     process)
-    (set-process-filter process nil)))
-
-;;;###autoload
-(defun elein-swank (&optional prefix)
-  "Launch lein swank and connect slime to it.  Interactively, a
-PREFIX means launch a standalone swank session without a
-project."
-  (interactive "P")
-  (let ((buffer (get-buffer-create elein-swank-buffer-name)))
-    (if prefix
-      (elein-burried-shell-command (elein-standalone-swank-command) buffer)
-      (elein-in-project-root
-       (elein-burried-shell-command (elein-swank-command) buffer)))
-
-    (set-process-filter (get-buffer-process buffer) #'elein-swank-process-filter)
-
-    (message "Starting swank..")))
-
-;;;###autoload
-(defun elein-kill-swank ()
-  "Kill swank process started by lein swank."
-  (interactive)
-  (let ((process (get-buffer-process "*elein-swank*")))
-    (when process
-      (ignore-errors (slime-quit-lisp))
-      (let ((timeout 10))
-        (while (and (> timeout 0)
-                    (eql 'run (process-status process)))
-          (sit-for 1)
-          (decf timeout)))
-      (ignore-errors (kill-buffer "*elein-swank*")))))
-
-;;;###autoload
-(defun elein-reswank ()
-  "Kill current lisp, restart lein swank and connect slime to it."
-  (interactive)
-  (elein-kill-swank)
-  (elein-swank))
 
 ;;;###autoload
 (defun elein-run-cmd (args)
