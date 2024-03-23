@@ -60,6 +60,11 @@
   (nth 5 (elein-in-project-root
           (file-attributes "project.clj"))))
 
+(defun elein-open-project-file ()
+  "Open project.clj file under project root path"
+  (interactive)
+  (elein-in-project-root (find-file "project.clj")))
+
 (defun elein-list-tasks ()
   "Collect tasks for current project."
   (let* ((root (elein-project-root))
