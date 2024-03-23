@@ -60,6 +60,7 @@
   (nth 5 (elein-in-project-root
           (file-attributes "project.clj"))))
 
+;;;###autoload
 (defun elein-open-project-file ()
   "Open project.clj file under project root path"
   (interactive)
